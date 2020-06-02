@@ -1,11 +1,11 @@
 == Neo4j Elastic{Search} Integration
 :toc:
 
-image:https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch.svg?branch=3.5["Build Status", link="https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch"]
+image:https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch.svg?branch=4.0["Build Status", link="https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch"]
 
 Integrates Neo4j change-feed with an ElasticSearch cluster.
 
-The different versions of Neo4j (3.x are supported on different branches).
+The different versions of Neo4j (4.X and 3.x are supported on different branches).
 
 === Approach
 
@@ -22,18 +22,15 @@ A transaction event listener checks changed Nodes against a given label, renders
 
 === Example
 
-Suppose that we keep nodes in our Neo4j instance labeled `Person` and
-`Place`, and that we want to index the values of the `first_name` and
-`last_name` properties of the former and `name` of the latter in two separate ElasticSearch indices named `people` and `places`.
+Suppose that we keep nodes in our Neo4j instance labeled `Person` and `Place`, and that we want to index the values of the `first_name` and `last_name` properties of the former and `name` of the latter in two separate ElasticSearch indices named `people` and `places`.
 For that, we would add the following directives to `conf/neo4j.conf`:
 
 ----
-elasticsearch.host_name=http://localhost:9200
-elasticsearch.index_spec=people:Person(first_name,last_name), places:Place(name)
+elasticsearch.neo4j.host_name=http://localhost:9200
+elasticsearch.neo4j.index_spec=people:Person(first_name,last_name), places:Place(name)
 ----
 
-With that in place, Neo4j will now track changes to nodes labeled
-`Person` or `Place` and keep our ES instance running on
+With that in place, Neo4j will now track changes to nodes labeled `Person` or `Place` and keep our ES instance running on
 `localhost:9200` in sync.
 
 To perform an initial import, you can use one of the procedure as describe below.
@@ -42,6 +39,7 @@ To perform an initial import, you can use one of the procedure as describe below
 
 Two Cypher procedures are available within this project, that allow you to index the data :
 
+[source,cypher]
 ----
 // To index a list of labels
 CALL elasticsearch.index(['Person', 'Movie'], { batchSize:500, async:false });
@@ -56,57 +54,96 @@ To use them, you need to enable them in the _neo4.conf_ file :
 dbms.security.procedures.unrestricted=elasticsearch.*
 ----
 
-=== ID / Labels fields
+=== Configuration
 
-By default, the indexes created will contain fields for the Neo4j ID and Labels, named `id` and `labels`.
+==== Multidatabase
+
+The plugin works with the multiple database feature of Neo4j 4.0. All configuration keys follow the naming convention
+`elasticsearch.neo4j.`, where `neo4j` is the name of your database.
+
+As an example, you can have the following configuration :
+
+----
+# Configuration for default database
+elasticsearch.neo4j.host_name=http://localhost:9200
+elasticsearch.neo4j.index_spec=movie1:Movie(title),person1:Person(name)
+
+# Configuration for the `test` database
+elasticsearch.test.host_name=http://10.0.0.1:9200
+elasticsearch.test.index_spec=movie2:Movie(title),person2:Person(name)
+----
+
+==== ID / Labels fields & database
+
+By default, the indexes created will contain fields for the Neo4j ID and Labels, named `@id` and `@labels`.
 These will be auto-created as searchable fields, but, if you'd prefer they not be included, simply add one or both of these lines to your `conf/neo4j.conf` file.
 
 ----
-elasticsearch.include_id_field=false
-elasticsearch.include_labels_field=false
+elasticsearch.neo4j.include_id_field=false
+elasticsearch.neo4j.include_labels_field=false
 ----
 
-=== Discovery
+NOTE: Ids are indexed as string
+
+Moreover, you can also include the name of the database (field `@dbname`) if you want to mix the index between database (per default it's disabled) :
+
+----
+elasticsearch.neo4j.include_db_field=false
+----
+
+NOTE: In this section we are talking abut the node'sID, not the ES document ID.
+FYI, the elastic document ID (ie `_id`) follow the pattern `dbname_ID`
+
+==== Discovery
 
 By default discovery (discovering of nodes within a cluster) is turned off.
 If you would like to turn discovery on, use the discovery option.
 
 ----
-elasticsearch.discovery=true
+elasticsearch.neo4j.discovery=true
 ----
 
-=== ElasticSearch types
-
-Types are deprecated in ES 7, so you can disable them in this plugin with the following configuration :
-Default value is `true`
-
-----
-elasticsearch.type_mapping=false
-----
-
-=== ElasticSearch auth
+==== ElasticSearch auth
 
 If you have an ElasticSearch that need an auth, you can defined the user / password like that :
 
 ----
-elasticsearch.user=elasticsearch
-elasticsearch.password=l3tm31n!
+elasticsearch.neo4j.user=elasticsearch
+elasticsearch.neo4j.password=l3tm31n!
 ----
 
 NOTE: If you have a cluster, every node should have the same user/password.
 
-=== ElasticSearch Timeouts
+==== ES types
 
-You can configure the `connectionTimeout` and `readTimeout`  (in ms)  :
+Types are deprecated in ES 7, so you can enable/disable them in this plugin with the following configuration :
+Default value is `true`
 
 ----
-elasticsearch.connection_timeout=3000
-elasticsearch.read_timeout=3000
+elasticsearch.neo4j.type_mapping=false
 ----
 
-INFO: A value of `0` is interpreted as an infinite timeout and the default value is `3000`
+==== Configuration reference
+
+[format="csv",separator=";",options="header"]
+----
+key;description;default value
+"elasticsearch.neo4j.async";"Should ElasticSearch indexation use async ?";"true"
+"elasticsearch.neo4j.discovery";"Discover other ElasticSearch cluster node ?";"false"
+"elasticsearch.neo4j.host_name";"ElasticSearch URL";"http://localhost:9200"
+"elasticsearch.neo4j.user";"ElasticSearch user's name";"null"
+"elasticsearch.neo4j.password";"ElasticSearch user's password";"null"
+"elasticsearch.neo4j.include_id_field";"Should ElasticSearch indexation includes node's ID ?";"true"
+"elasticsearch.neo4j.include_labels_field";"Should ElasticSearch indexation includes node's Labels ?";"true"
+"elasticsearch.neo4j.include_db_field";"Should ElasticSearch indexation includes database name ?";"false"
+"elasticsearch.neo4j.type_mapping";"Should ElasticSearch indexation use labels as types ?";"false"
+"elasticsearch.neo4j.connection_timeout";"ElasticSearch connection timeout (ms)";"3000"
+"elasticsearch.neo4j.read_timeout";"ElasticSearch read timeout (ms)";"3000"
+----
 
 === ElasticSearch mapping
+
+The plugin try to convert all the values to valid format for ElasticSearch, so the default dynamic mapping can be applied.
 
 ==== Geo Point
 

@@ -1,18 +1,20 @@
 package org.neo4j.elasticsearch;
 
-import org.neo4j.elasticsearch.config.ElasticSearchConfig;
-import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.configuration.Config;
+import org.neo4j.dbms.api.DatabaseManagementService;
+import org.neo4j.kernel.extension.ExtensionFactory;
 import org.neo4j.kernel.extension.ExtensionType;
-import org.neo4j.kernel.extension.KernelExtensionFactory;
-import org.neo4j.kernel.impl.spi.KernelContext;
+import org.neo4j.kernel.extension.context.ExtensionContext;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.Lifecycle;
+import org.neo4j.logging.internal.LogService;
+import org.neo4j.procedure.impl.GlobalProceduresRegistry;
 
 /**
  * @author mh
  * @since 06.02.13
  */
-public class ElasticSearchKernelExtensionFactory extends KernelExtensionFactory<ElasticSearchKernelExtensionFactory.Dependencies> {
+public class ElasticSearchKernelExtensionFactory extends ExtensionFactory<ElasticSearchKernelExtensionFactory.Dependencies> {
 
     public static final String SERVICE_NAME = "ELASTIC_SEARCH";
 
@@ -21,16 +23,26 @@ public class ElasticSearchKernelExtensionFactory extends KernelExtensionFactory<
     }
 
     @Override
-    public Lifecycle newInstance(KernelContext kernelContext, Dependencies dependencies) {
-        // Initialize the configuration
-        ElasticSearchConfig.initialize(dependencies.graphdatabaseAPI());
+    public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
         // Create the extension
-        return new ElasticSearchExtension(dependencies.getGraphDatabaseService());
+        GraphDatabaseAPI db = dependencies.graphdatabaseAPI();
+        LogService log = dependencies.log();
+        DatabaseManagementService dbms = dependencies.databaseManagementService();
+        GlobalProceduresRegistry globalProceduresRegistry = dependencies.globalProceduresRegistry();
+        Config config = dependencies.config();
+        return new ElasticSearchLifecycle(log, config, dbms, db, globalProceduresRegistry);
     }
 
     public interface Dependencies {
+        Config config();
+
+        DatabaseManagementService databaseManagementService();
+
+        GlobalProceduresRegistry globalProceduresRegistry();
+
         GraphDatabaseAPI graphdatabaseAPI();
 
-        GraphDatabaseService getGraphDatabaseService();
+        LogService log();
+
     }
 }

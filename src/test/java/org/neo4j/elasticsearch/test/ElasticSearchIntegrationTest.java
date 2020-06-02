@@ -1,6 +1,5 @@
 package org.neo4j.elasticsearch.test;
 
-import org.neo4j.elasticsearch.ElasticSearchProcedures;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestClientFactory;
 import io.searchbox.client.config.HttpClientConfig;
@@ -11,16 +10,21 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.neo4j.driver.v1.Config;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.GraphDatabase;
-import org.neo4j.driver.v1.Session;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.Config;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Session;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.harness.junit.Neo4jRule;
+import org.neo4j.harness.junit.rule.Neo4jRule;
+import org.neo4j.elasticsearch.ElasticSearchKernelExtensionFactory;
+import org.neo4j.elasticsearch.ElasticSearchProcedures;
+import org.neo4j.elasticsearch.config.ElasticSearchConfig;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class ElasticSearchIntegrationTest {
@@ -39,12 +43,15 @@ public abstract class ElasticSearchIntegrationTest {
     public Neo4jRule neo4j;
 
     public ElasticSearchIntegrationTest() {
+        ElasticSearchConfig esConfig = ElasticSearchConfig.forDatabase(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         neo4j = new Neo4jRule()
                 .withProcedure(ElasticSearchProcedures.class)
-                .withConfig("elasticsearch.host_name", "http://" + container.getHttpHostAddress())
-                .withConfig("elasticsearch.index_spec", index + ":" + label + "(" + String.join(",  ", properties) + ")")
-                .withConfig("elasticsearch.type_mapping", "false")
-                .withConfig("elasticsearch.async", "false");
+                .withExtensionFactories(List.of(new ElasticSearchKernelExtensionFactory()))
+                .withConfig(esConfig.CONFIG_ES_URL, "http://" + container.getHttpHostAddress())
+                .withConfig(esConfig.CONFIG_ES_INDEX_SPEC, index + ":" + label + "(" + String.join(", ", properties) + ")")
+                .withConfig(esConfig.CONFIG_ES_USE_INDEX_TYPE, Boolean.FALSE)
+                .withConfig(esConfig.CONFIG_ES_INCLUDE_DB, Boolean.TRUE)
+                .withConfig(esConfig.CONFIG_ES_ASYNC, Boolean.FALSE);
     }
 
     public static JestClient getJestClient() {
@@ -74,17 +81,22 @@ public abstract class ElasticSearchIntegrationTest {
         }
     }
 
+    public static String getEsNodeId(Node node) {
+        return GraphDatabaseSettings.DEFAULT_DATABASE_NAME + "_" + String.valueOf(node.getId());
+    }
+
     public Driver getNeo4jDriver() {
-        return GraphDatabase.driver(neo4j.boltURI(), Config.build().withoutEncryption().toConfig());
+        return GraphDatabase.driver(neo4j.boltURI(), Config.builder().withoutEncryption().build());
     }
 
     public Node createNode(String label, Map<String, String> properties) {
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().createNode(Label.label(label));
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.createNode(Label.label(label));
             for (Map.Entry<String, String> entry : properties.entrySet()) {
                 node.setProperty(entry.getKey(), entry.getValue());
             }
-            tx.success();
+            tx.commit();
+            ;
             return node;
         }
     }

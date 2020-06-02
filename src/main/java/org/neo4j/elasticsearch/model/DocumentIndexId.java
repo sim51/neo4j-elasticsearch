@@ -5,12 +5,15 @@ package org.neo4j.elasticsearch.model;
  */
 public class DocumentIndexId {
 
+    // database name
+    private final String dbName;
     // name of the index
     private final String indexName;
     // Id of the document
     private final String id;
 
-    public DocumentIndexId(String indexName, String id) {
+    public DocumentIndexId(String dbName, String indexName, String id) {
+        this.dbName = dbName;
         this.indexName = indexName;
         this.id = id;
     }
@@ -22,6 +25,7 @@ public class DocumentIndexId {
         result = prime * result + getClass().hashCode();
         result = prime * result + ((id == null) ? 0 : id.hashCode());
         result = prime * result + ((indexName == null) ? 0 : indexName.hashCode());
+        result = prime * result + ((dbName == null) ? 0 : dbName.hashCode());
         return result;
     }
 
@@ -34,21 +38,44 @@ public class DocumentIndexId {
         if (!(obj instanceof DocumentIndexId))
             return false;
         DocumentIndexId other = (DocumentIndexId) obj;
+
+        // check id
         if (id == null) {
-            if (other.id != null)
+            if (other.id != null) {
                 return false;
-        } else if (!id.equals(other.id))
-            return false;
+            }
+        } else {
+            if (!id.equals(other.id)) {
+                return false;
+            }
+        }
+
+        // check indexname
         if (indexName == null) {
-            if (other.indexName != null)
+            if (other.indexName != null) {
                 return false;
-        } else if (!indexName.equals(other.indexName))
-            return false;
+            }
+        } else {
+            if (!indexName.equals(other.indexName)) {
+                return false;
+            }
+        }
+
+        // check dbname
+        if (dbName == null) {
+            if (other.dbName != null) {
+                return false;
+            }
+        } else {
+            if (!dbName.equals(other.dbName)) {
+                return false;
+            }
+        }
         return true;
     }
 
     @Override
     public String toString() {
-        return "IndexId [indexName=" + indexName + ", id=" + id + "]";
+        return String.format("IndexId [dbName=%s, indexName=%s, id=$s]", dbName, indexName, id);
     }
 }

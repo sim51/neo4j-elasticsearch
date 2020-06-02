@@ -1,14 +1,14 @@
 package org.neo4j.elasticsearch;
 
-import org.neo4j.elasticsearch.test.ElasticSearchIntegrationTest;
 import io.searchbox.client.JestClient;
 import io.searchbox.core.Search;
 import io.searchbox.core.SearchResult;
 import org.junit.Test;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Record;
-import org.neo4j.driver.v1.Session;
-import org.neo4j.driver.v1.StatementResult;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.elasticsearch.test.ElasticSearchIntegrationTest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -29,7 +29,7 @@ public class ElasticSearchProceduresTest extends ElasticSearchIntegrationTest {
 
         // Run the procedure
         try (Session session = driver.session()) {
-            StatementResult rs = session.run("CALL elasticsearch.indexAll({ batchSize:50, async:false });");
+            Result rs = session.run("CALL elasticsearch.indexAll({ batchSize:50, async:false });");
 
             // Check the return of the procedure
             Record record = rs.single();
@@ -41,7 +41,7 @@ public class ElasticSearchProceduresTest extends ElasticSearchIntegrationTest {
         String query = "{\n" +
                 "  \"query\": {\n" +
                 "    \"match\": {\n" +
-                "      \"labels\": \"MyLabel\"\n" +
+                "      \"@labels\": \"MyLabel\"\n" +
                 "    }\n" +
                 "  }\n" +
                 "}";

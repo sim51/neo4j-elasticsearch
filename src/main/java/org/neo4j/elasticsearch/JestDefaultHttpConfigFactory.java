@@ -16,14 +16,14 @@ import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
 
 public class JestDefaultHttpConfigFactory {
-    public static HttpClientConfig getConfigFor(String hostName, Boolean discovery, String user, String password, Integer connectionTimeout, Integer readTimeout) throws URISyntaxException, GeneralSecurityException {
+    public static HttpClientConfig getConfigFor(String hostName, Boolean discovery, String user, String password, Integer connTimeout, Integer readTimeout) throws URISyntaxException, GeneralSecurityException {
         HttpClientConfig.Builder clientConfig = new HttpClientConfig.Builder(hostName)
                 .multiThreaded(true)
                 .defaultSchemeForDiscoveredNodes(new URI(hostName).getScheme())
                 .sslSocketFactory(getSyncHttpsHandler())
                 .httpsIOSessionStrategy(getAsyncHttpsHandler());
-        if (connectionTimeout != null && connectionTimeout >= 0) {
-            clientConfig.connTimeout(connectionTimeout);
+        if (connTimeout != null && connTimeout >= 0) {
+            clientConfig.connTimeout(connTimeout);
         }
         if (readTimeout != null && readTimeout >= 0) {
             clientConfig.readTimeout(readTimeout);

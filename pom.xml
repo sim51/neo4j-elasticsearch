@@ -1,7 +1,6 @@
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
     <modelVersion>4.0.0</modelVersion>
 
     <!-- =========== -->
@@ -10,7 +9,7 @@
     <groupId>com.ouestware</groupId>
     <artifactId>neo4j-elasticsearch</artifactId>
     <packaging>jar</packaging>
-    <version>3.5.14</version>
+    <version>4.0.1</version>
     <name>neo4j-elasticsearch</name>
     <description>Neo4j Elasticsearch Integration</description>
     <url>https://gitlab.com/ouestware/neo4j-elasticsearch</url>
@@ -41,11 +40,11 @@
     <properties>
         <!-- General -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
 
         <!-- Deps version -->
         <neo4j.version>${project.version}</neo4j.version>
-        <neo4j.driver.version>1.7.5</neo4j.driver.version>
+        <neo4j.driver.version>4.0.1</neo4j.driver.version>
         <testcontainers.version>1.12.5</testcontainers.version>
         <jest.version>6.3.1</jest.version>
         <junit.version>4.13</junit.version>
@@ -202,7 +201,5 @@
             </plugin>
         </plugins>
     </build>
-
-    
 
 </project>

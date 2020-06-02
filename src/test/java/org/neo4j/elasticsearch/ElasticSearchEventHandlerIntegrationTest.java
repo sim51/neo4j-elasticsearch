@@ -1,19 +1,19 @@
 package org.neo4j.elasticsearch;
 
-import org.neo4j.elasticsearch.test.ElasticSearchIntegrationTest;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestResult;
 import io.searchbox.core.Get;
 import io.searchbox.core.Search;
 import io.searchbox.core.SearchResult;
 import org.junit.Test;
-import org.neo4j.driver.v1.Driver;
-import org.neo4j.driver.v1.Session;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Session;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.elasticsearch.test.ElasticSearchIntegrationTest;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static java.util.Arrays.asList;
@@ -26,25 +26,23 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_indexation_of_a_created_node_should_work() throws Exception {
         // Create a Neo4j node
-        Node node = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node node = createNode(label, Map.of("foo", "bar", "hello", "world"));
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(node.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(node)).refresh(true).build());
 
             // Check the response
             assertEquals(true, response.isSucceeded());
             assertEquals(index, response.getValue("_index"));
-            assertEquals(String.valueOf(node.getId()), response.getValue("_id"));
+            assertEquals(getEsNodeId(node), response.getValue("_id"));
             assertEquals("_doc", response.getValue("_type"));
 
             // Check the response's content
             Map source = response.getSourceAsObject(Map.class);
-            assertEquals(asList(label), source.get("labels"));
-            assertEquals(String.valueOf(node.getId()), source.get("id"));
+            assertEquals(asList(label), source.get("@labels"));
+            assertEquals(String.valueOf(node.getId()), source.get("@id"));
+            assertEquals(GraphDatabaseSettings.DEFAULT_DATABASE_NAME, source.get("@dbname"));
             assertEquals("bar", source.get("foo"));
             assertEquals("world", source.get("hello"));
         }
@@ -53,21 +51,18 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_desindexation_of_a_deleted_node_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node nodeCreated = createNode(label, Map.of("foo", "bar", "hello", "world"));
 
         // Delete the node
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.delete();
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response's content
             assertEquals(false, response.isSucceeded());
@@ -77,26 +72,23 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_indexation_of_an_updated_property_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node nodeCreated = createNode(label, Map.of("foo", "bar", "hello", "world"));
 
         // Update the node
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.setProperty("foo", "PMU");
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response
             assertEquals(true, response.isSucceeded());
             assertEquals(index, response.getValue("_index"));
-            assertEquals(String.valueOf(nodeCreated.getId()), response.getValue("_id"));
+            assertEquals(getEsNodeId(nodeCreated), response.getValue("_id"));
             assertEquals("_doc", response.getValue("_type"));
 
             // Check the response's content
@@ -109,26 +101,23 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_indexation_of_a_removed_property_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node nodeCreated = createNode(label, Map.of("foo", "bar", "hello", "world"));
 
         // Update the node
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.removeProperty("hello");
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response
             assertEquals(true, response.isSucceeded());
             assertEquals(index, response.getValue("_index"));
-            assertEquals(String.valueOf(nodeCreated.getId()), response.getValue("_id"));
+            assertEquals(getEsNodeId(nodeCreated), response.getValue("_id"));
             assertEquals("_doc", response.getValue("_type"));
 
             // Check the response's content
@@ -141,20 +130,18 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_indexation_of_a_removed_property_that_is_the_last_indexed_field_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-        }});
+        Node nodeCreated = createNode(label, Map.of("foo", "bar"));
 
         // Update the node
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.removeProperty("foo");
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response's content
             assertEquals(false, response.isSucceeded());
@@ -164,26 +151,23 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_indexation_of_an_added_label_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode("Test", new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node nodeCreated = createNode("Test", Map.of("foo", "bar", "hello", "world"));
 
         // Add labelon  the node
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.addLabel(Label.label(label));
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response
             assertEquals(true, response.isSucceeded());
             assertEquals(index, response.getValue("_index"));
-            assertEquals(String.valueOf(nodeCreated.getId()), response.getValue("_id"));
+            assertEquals(getEsNodeId(nodeCreated), response.getValue("_id"));
             assertEquals("_doc", response.getValue("_type"));
 
             // Check the response's content
@@ -196,21 +180,18 @@ public class ElasticSearchEventHandlerIntegrationTest extends ElasticSearchInteg
     @Test
     public void es_desindexation_of_a_removed_label_should_work() throws Exception {
         // Create a Neo4j node
-        Node nodeCreated = createNode(label, new HashMap<String, String>() {{
-            put("foo", "bar");
-            put("hello", "world");
-        }});
+        Node nodeCreated = createNode(label, Map.of("foo", "bar", "hello", "world"));
 
         // Delete the label
-        try (Transaction tx = neo4j.getGraphDatabaseService().beginTx()) {
-            Node node = neo4j.getGraphDatabaseService().getNodeById(nodeCreated.getId());
+        try (Transaction tx = neo4j.defaultDatabaseService().beginTx()) {
+            Node node = tx.getNodeById(nodeCreated.getId());
             node.removeLabel(Label.label(label));
-            tx.success();
+            tx.commit();
         }
 
         // Request to ES
         try (JestClient client = getJestClient()) {
-            JestResult response = client.execute(new Get.Builder(index, String.valueOf(nodeCreated.getId())).refresh(true).build());
+            JestResult response = client.execute(new Get.Builder(index, getEsNodeId(nodeCreated)).refresh(true).build());
 
             // Check the response's content
             assertEquals(false, response.isSucceeded());
