@@ -3,49 +3,199 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.neo4j</groupId>
+
+    <!-- =========== -->
+    <!-- = General = -->
+    <!-- =========== -->
+    <groupId>com.ouestware</groupId>
     <artifactId>neo4j-elasticsearch</artifactId>
     <packaging>jar</packaging>
-    <version>3.5.6</version>
+    <version>3.5.14</version>
     <name>neo4j-elasticsearch</name>
     <description>Neo4j Elasticsearch Integration</description>
+    <url>https://gitlab.com/ouestware/neo4j-elasticsearch</url>
 
-    <properties>
-        <neo4j.version>${project.version}</neo4j.version>
-    </properties>
-
+    <!-- =========== -->
+    <!-- = Licence = -->
+    <!-- =========== -->
     <licenses>
-      <license>
-        <name>The Apache Software License, Version 2.0</name>
-        <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-        <comments>
-          Note that this license is for the project itself,
-          and not for its dependencies. See the included NOTICE.txt
-          file for further details.
-          </comments>
-          <distribution>repo</distribution>
-      </license>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
     </licenses>
 
+    <!-- ============================= -->
+    <!-- = Source Control management = -->
+    <!-- ============================= -->
+    <scm>
+        <connection>scm:git:git@github.com:neo4j-contrib/neo4j-elasticsearch.git</connection>
+        <developerConnection>scm:git:git@github.com:neo4j-contrib/neo4j-elasticsearch.git</developerConnection>
+        <url>git@github.com:neo4j-contrib/neo4j-elasticsearch.git</url>
+    </scm>
+
+    <!-- ============== -->
+    <!-- = Properties = -->
+    <!-- ============== -->
+    <properties>
+        <!-- General -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <java.version>1.8</java.version>
+
+        <!-- Deps version -->
+        <neo4j.version>${project.version}</neo4j.version>
+        <neo4j.driver.version>1.7.5</neo4j.driver.version>
+        <testcontainers.version>1.12.5</testcontainers.version>
+        <jest.version>6.3.1</jest.version>
+        <junit.version>4.13</junit.version>
+
+        <!-- Plugin version -->
+        <maven.compile.version>3.8.1</maven.compile.version>
+        <maven.shade.version>3.2.2</maven.shade.version>
+        <maven.jacoco.plugin>0.8.5</maven.jacoco.plugin>
+        <maven.source.version>3.2.1</maven.source.version>
+        <maven.javadoc.version>3.2.0</maven.javadoc.version>
+        <maven.gpg.version>1.5</maven.gpg.version>
+        <maven.nexus-staging.version>1.6.7</maven.nexus-staging.version>
+    </properties>
+
+
+    <!-- ============== -->
+    <!-- = Dependency = -->
+    <!-- ============== -->
+    <dependencies>
+        <dependency>
+            <groupId>io.searchbox</groupId>
+            <artifactId>jest</artifactId>
+            <version>${jest.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.neo4j</groupId>
+            <artifactId>neo4j</artifactId>
+            <version>${neo4j.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.neo4j.test</groupId>
+            <artifactId>neo4j-harness</artifactId>
+            <version>${neo4j.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.neo4j.community</groupId>
+            <artifactId>it-test-support</artifactId>
+            <version>${neo4j.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.neo4j.driver</groupId>
+            <artifactId>neo4j-java-driver</artifactId>
+            <version>${neo4j.driver.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <!-- ========= -->
+    <!-- = Build = -->
+    <!-- ========= -->
     <build>
         <plugins>
+            <!-- Compiler plugin -->
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.2</version>
+                <version>${maven.compile.version}</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
+            <!-- Source plugin-->
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>${maven.source.version}</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Javadoc plugin-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>${maven.javadoc.version}</version>
+                <configuration>
+                    <source>${java.version}</source>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Shade plugin : package project with its deps -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.4.3</version>
+                <version>${maven.shade.version}</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>all</shadedClassifierName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Jacoco plugin : code coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${maven.jacoco.plugin}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <!-- attached to Maven test phase -->
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -53,36 +203,6 @@
         </plugins>
     </build>
 
-    <dependencies>
-        <dependency>
-            <groupId>io.searchbox</groupId>
-            <artifactId>jest</artifactId>
-            <version>2.0.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.neo4j</groupId>
-            <artifactId>neo4j-kernel</artifactId>
-            <version>${neo4j.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.neo4j</groupId>
-            <artifactId>neo4j-lucene-index</artifactId>
-            <version>${neo4j.version}</version>
-            <scope>provided</scope>
-        </dependency>
+    
 
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.11</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.neo4j.community</groupId>
-            <artifactId>it-test-support</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
 </project>

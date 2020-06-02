@@ -1,69 +1,114 @@
 package org.neo4j.elasticsearch;
 
-import io.searchbox.client.JestClient;
-import io.searchbox.client.JestClientFactory;
-
+import org.neo4j.elasticsearch.config.ElasticSearchConfig;
+import org.neo4j.elasticsearch.model.DocumentIndexId;
+import org.neo4j.elasticsearch.model.IndexAllResult;
+import io.searchbox.action.BulkableAction;
+import io.searchbox.core.Bulk;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.text.ParseException;
 
 /**
  * @author mh
  * @since 25.04.15
  */
 public class ElasticSearchExtension extends LifecycleAdapter {
-    private final GraphDatabaseService gds;
-    private final static Logger logger = Logger.getLogger(ElasticSearchExtension.class.getName());
-    private final String hostName;
-    private boolean enabled = true;
-    private final boolean discovery;
-    private ElasticSearchEventHandler handler;
-    private JestClient client;
-    private ElasticSearchIndexSettings indexSettings;
 
-    public ElasticSearchExtension(GraphDatabaseService gds, String hostName, String indexSpec, Boolean discovery, Boolean includeIDField, Boolean includeLabelsField) {
-        Map iSpec;
-        try {
-            iSpec = ElasticSearchIndexSpecParser.parseIndexSpec(indexSpec);
-            if (iSpec.size() == 0) {
-                logger.severe("ElasticSearch Integration: syntax error in index_spec");
-                enabled = false;
-            }
-            this.indexSettings = new ElasticSearchIndexSettings(iSpec, includeIDField, includeLabelsField);
-        } catch (ParseException e) {
-            logger.severe("ElasticSearch Integration: Can't define index twice");
-            enabled = false;
-        }
-        logger.info("Elasticsearch Integration: Running " + hostName + " - " + indexSpec);
+    // The logger
+    private final static Logger logger = Logger.getLogger(ElasticSearchExtension.class.getName());
+    // Instance of the graphdb service
+    private final GraphDatabaseService gds;
+
+    // The ES client to index nodes
+    private ElasticSearchClient client;
+    // The ES Event Handler
+    private ElasticSearchEventHandler handler;
+    // Is the extension enabled ?
+    private boolean enabled = false;
+
+    /**
+     * Create the ElasticSearch Extension.
+     *
+     * @param gds The Neo4j graph database service
+     */
+    public ElasticSearchExtension(GraphDatabaseService gds) {
         this.gds = gds;
-        this.hostName = hostName;
-        this.discovery = discovery;
+        if (ElasticSearchConfig.indices().size() > 0) {
+            enabled = true;
+        }
+    }
+
+    /**
+     * Execute a full re-index job for the specified labels.
+     *
+     * @param labels    The list of lables to reindex
+     * @param async     Should the work must be done in async mode ?
+     * @param batchSize The size of batch sent to Elastic
+     * @return The result of the process
+     * @throws IOException if an error occurred during the ES load
+     */
+    public IndexAllResult reIndex(List<String> labels, boolean async, long batchSize) throws Exception {
+        long nbBatch = 0;
+        long nbDoc = 0;
+        Map<DocumentIndexId, BulkableAction> actions = new HashMap<>(1000);
+
+        // For all labels check if it's an indexed label
+        for (String label : labels) {
+            if (ElasticSearchConfig.indices().containsKey(label)) {
+                // retrieve all the node with the label
+                try (ResourceIterator<Node> nodes = gds.findNodes(Label.label(label))) {
+                    while (nodes.hasNext()) {
+                        Node node = nodes.next();
+                        nbDoc++;
+                        actions.putAll(ElasticSearchClient.indexRequestsAction(node));
+
+                        if (actions.size() == batchSize || (!nodes.hasNext() && actions.size() > 0)) {
+                            Bulk bulk = new Bulk.Builder().addAction(actions.values()).build();
+                            client.index(bulk, async);
+                            actions.clear();
+                            nbBatch++;
+                        }
+                    }
+                }
+            }
+        }
+
+        return new IndexAllResult(nbBatch, nbDoc);
     }
 
     @Override
     public void init() throws Throwable {
-        if (!enabled) return;
+        if (enabled) {
+            client = new ElasticSearchClient();
 
-        client = getJestClient(hostName, discovery);
-        handler = new ElasticSearchEventHandler(client, indexSettings);
-        gds.registerTransactionEventHandler(handler);
-        logger.info("Connecting to ElasticSearch");
+            // Create the Event handler
+            handler = new ElasticSearchEventHandler(client);
+            gds.registerTransactionEventHandler(handler);
+
+            logger.info("Connecting to ElasticSearch");
+        }
     }
 
     @Override
-    public void shutdown() throws Throwable {
+    public void shutdown() {
         if (!enabled) return;
+
+        // Remove the event handler
         gds.unregisterTransactionEventHandler(handler);
-        client.shutdownClient();
+
+        // Shutdown the ES client
+        client.shutdown();
+
         logger.info("Disconnected from ElasticSearch");
     }
 
-    private JestClient getJestClient(final String hostName, final Boolean discovery) throws Throwable {
-      JestClientFactory factory = new JestClientFactory();
-      factory.setHttpClientConfig(JestDefaultHttpConfigFactory.getConfigFor(hostName, discovery));
-      return factory.getObject();
-    }
 }

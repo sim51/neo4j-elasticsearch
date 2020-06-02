@@ -1,0 +1,133 @@
+== Neo4j Elastic{Search} Integration
+:toc:
+
+image:https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch.svg?branch=3.5["Build Status", link="https://travis-ci.org/neo4j-contrib/neo4j-elasticsearch"]
+
+Integrates Neo4j change-feed with an ElasticSearch cluster.
+
+The different versions of Neo4j (3.x are supported on different branches).
+
+=== Approach
+
+This Neo4j Kernel Extension updates an ElasticSearch instance or cluster with changes in the graph.
+
+A transaction event listener checks changed Nodes against a given label, renders the whole node as json document and indexes all changes in bulk with ES.
+
+=== Installation
+
+* Download the jar from the https://github.com/neo4j-contrib/neo4j-elasticsearch/releases[latest release].
+* Copy to `$NEO4J_HOME/plugins` or for Neo4j community to the plugins folder that you find on the `Options` pane.
+* Modify `$NEO4J_HOME/conf/neo4j.conf` accordingly (see the Example section)
+* Restart Neo4j
+
+=== Example
+
+Suppose that we keep nodes in our Neo4j instance labeled `Person` and
+`Place`, and that we want to index the values of the `first_name` and
+`last_name` properties of the former and `name` of the latter in two separate ElasticSearch indices named `people` and `places`.
+For that, we would add the following directives to `conf/neo4j.conf`:
+
+----
+elasticsearch.host_name=http://localhost:9200
+elasticsearch.index_spec=people:Person(first_name,last_name), places:Place(name)
+----
+
+With that in place, Neo4j will now track changes to nodes labeled
+`Person` or `Place` and keep our ES instance running on
+`localhost:9200` in sync.
+
+To perform an initial import, you can use one of the procedure as describe below.
+
+=== Procedures
+
+Two Cypher procedures are available within this project, that allow you to index the data :
+
+----
+// To index a list of labels
+CALL elasticsearch.index(['Person', 'Movie'], { batchSize:500, async:false });
+
+// To index all your database
+CALL elasticsearch.indexAll({ batchSize:500, async:false });
+----
+
+To use them, you need to enable them in the _neo4.conf_ file :
+
+----
+dbms.security.procedures.unrestricted=elasticsearch.*
+----
+
+=== ID / Labels fields
+
+By default, the indexes created will contain fields for the Neo4j ID and Labels, named `id` and `labels`.
+These will be auto-created as searchable fields, but, if you'd prefer they not be included, simply add one or both of these lines to your `conf/neo4j.conf` file.
+
+----
+elasticsearch.include_id_field=false
+elasticsearch.include_labels_field=false
+----
+
+=== Discovery
+
+By default discovery (discovering of nodes within a cluster) is turned off.
+If you would like to turn discovery on, use the discovery option.
+
+----
+elasticsearch.discovery=true
+----
+
+=== ElasticSearch types
+
+Types are deprecated in ES 7, so you can disable them in this plugin with the following configuration :
+Default value is `true`
+
+----
+elasticsearch.type_mapping=false
+----
+
+=== ElasticSearch auth
+
+If you have an ElasticSearch that need an auth, you can defined the user / password like that :
+
+----
+elasticsearch.user=elasticsearch
+elasticsearch.password=l3tm31n!
+----
+
+NOTE: If you have a cluster, every node should have the same user/password.
+
+=== ElasticSearch Timeouts
+
+You can configure the `connectionTimeout` and `readTimeout`  (in ms)  :
+
+----
+elasticsearch.connection_timeout=3000
+elasticsearch.read_timeout=3000
+----
+
+INFO: A value of `0` is interpreted as an infinite timeout and the default value is `3000`
+
+=== ElasticSearch mapping
+
+==== Geo Point
+
+Points are sent to ES in the following format : `[x, y, z]`.
+See here to know how to map it in your index : https://www.elastic.co/guide/en/elasticsearch/reference/current/geo-point.html
+
+INFO: The ES dynamic mapping is not working for geo point, so you have to explicit defined your index schema
+
+==== Date, Time and duration
+
+* Date : `yyyy-MM-dd`
+* LocalDatetime & DateTime: `yyyy-MM-ddTHH:mm:ss.SSSZ`
+* LocalTime & Time : `HHmmss'Z'`
+* Duration : As map of unit / value
+
+Some usefull links about this topic :
+
+* https://www.elastic.co/guide/en/elasticsearch/reference/current/dynamic-field-mapping.html#date-detection
+* https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#strict-date-time
+
+=== Developing
+
+To run the tests, just run `mvn test`.
+

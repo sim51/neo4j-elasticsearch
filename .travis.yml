@@ -4,7 +4,5 @@ jdk:
   - oraclejdk11
 
 services:
-  - elasticsearch
+  - docker
 
-before_script:
-  - sleep 10
