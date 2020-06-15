@@ -70,17 +70,19 @@ public class ElasticSearchLifecycle extends LifecycleAdapter {
 
             ElasticSearchConfig esConfig = config.getGroups(ElasticSearchConfig.class).get(db.databaseName());
 
-            // parse the index specification
-            indices = ElasticSearchIndexSpecParser.parseIndexSpec(config.get(esConfig.CONFIG_ES_INDEX_SPEC));
+            if(esConfig != null) {
+                // parse the index specification
+                indices = ElasticSearchIndexSpecParser.parseIndexSpec(config.get(esConfig.CONFIG_ES_INDEX_SPEC));
 
-            // Create the ES client
-            client = new ElasticSearchClient(config, db.databaseName());
+                // Create the ES client
+                client = new ElasticSearchClient(config, db.databaseName());
 
-            // Create the Event Listener
-            listener = new ElasticSearchEventListener(client);
+                // Create the Event Listener
+                listener = new ElasticSearchEventListener(client);
 
-            // Register Event Listener
-            dbms.registerTransactionEventListener(db.databaseName(), listener);
+                // Register Event Listener
+                dbms.registerTransactionEventListener(db.databaseName(), listener);
+            }
         }
     }
 
