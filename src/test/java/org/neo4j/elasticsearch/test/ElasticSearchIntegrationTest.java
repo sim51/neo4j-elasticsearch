@@ -96,7 +96,6 @@ public abstract class ElasticSearchIntegrationTest {
                 node.setProperty(entry.getKey(), entry.getValue());
             }
             tx.commit();
-            ;
             return node;
         }
     }
